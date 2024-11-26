@@ -59,7 +59,17 @@ table {
     overflow-y: hidden;
     padding: 5px;
     box-sizing: border-box;
+    background: white;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    border: 1px solid white;
   }
+.dropdown-select:hover,
+.dropdown-select:active,
+.dropdown-select:visited {
+    border: 1px solid gray;
+    }
 .dropdown-select option {
     padding: 8px;
   }

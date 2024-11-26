@@ -158,6 +158,7 @@ def showTable(data):
                 data_txt+=str(data[tag][i])
             data_txt+="</td>"
         data_txt+="</tr>"
+    data_txt+="</table>"
     return data_txt
 #-----------------------------------------------------------------------
 def getAccess(cur,userid):

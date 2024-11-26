@@ -36,20 +36,32 @@ def index():
         views_txt=getMenu(cur,userid)
         menu_txt=template('menu.tpl', admin_menu=admin_txt, views=views_txt)
         tags=['None','Project','Creation date','Due date']
+        tagssql=['','project','creation_date','due_date']
         cur.execute(GETTAGS)
         rows=cur.fetchall()
         for row in rows:
             tags.append(row['name'])
+            tagssql.append(row['name'])
+        orderix=groupidx=idx=0
+        if request.query.id:
+            idx=request.query.id
+        if request.query.order:
+            orderidx=request.query.order
+        if request.query.group:
+            groupidx=request.query.group
         orderby=groupby=""
-        for idx,tag in enumerate(tags):
-            selectorder=selectgroup=''
-            if int(request.query.get('order',0))==idx:
-                selectorder=' selected'
-            if int(request.query.get('group',0))==idx:
-                selectgroup=' selected'
-            orderby+=LISTOPTIONSELECT % (idx,selectorder,tag)
-            groupby+=LISTOPTIONSELECT % (idx,selectgroup,tag)
-        cur.execute("select * from all_tasks,get_project_users where get_project_users.project=all_tasks.project")
+        for idx, tag in enumerate(tags):
+            orderby += LISTOPTIONSELECT % (idx, ' selected' if int(orderidx) == idx else '', tag)
+            groupby += LISTOPTIONSELECT % (idx, ' selected' if int(groupidx) == idx else '', tag)
+        tasksql="select * from all_tasks,get_project_users where get_project_users.project=all_tasks.project"
+        if orderidx>0:
+            tasksql+=" order by  %s" % (tagssql[int(groupidx)],) 
+        if orderidx>0:
+            if "order" in tasksql:
+                tasksql+=",%s" % (tagssql[int(orderidx)],)  
+            else:
+                tasksql+=" order by  %s" % (tagssql[int(orderidx)],) 
+        cur.execute(tasksql)
         rows=cur.fetchall()
         cur.execute("select * from created_views where id=?", (request.query.id,))
         row_views=cur.fetchall()
@@ -59,7 +71,9 @@ def index():
         data_txt=showTable(data)
 
 
-        return(template('list_task.tpl', menu=menu_txt,groupby=groupby,orderby=orderby,rows=data_txt))
+        baseurlgroup="index.py?id=%s&order=%s&group=" % (idx,orderidx)
+        baseurlorder="index.py?id=%s&group=%s&order=" % (idx,groupidx)
+        return(template('list_task.tpl', menu=menu_txt,groupby=groupby,orderby=orderby,rows=data_txt,baseurlorder=baseurlorder,baseurlgroup=baseurlgroup))
         conn.close()
     except Exception as e:
         return("ERROR: %s" % e)
