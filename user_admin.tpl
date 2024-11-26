@@ -1,6 +1,6 @@
 <html>
     <head>
-        <title>Slump Project Management</title>
+        <title>Prosa Project Management</title>
         <link type="text/css" rel="stylesheet" href="/prosa/static/styles.css" />
     </head>
     <body>
