@@ -21,6 +21,9 @@ import sqlite3
 import random
 import hashlib
 from collections import OrderedDict
+# Needed for debugging
+import logging
+
 #-----------------------------------------------------------------------
 # Constants
 #-----------------------------------------------------------------------
@@ -34,23 +37,27 @@ GETIDFROMPASSWORD="select id from user where email=? and password=?"
 UPDATESESSION="update user set session_id=?,session_time=datetime('now','start of day','+2 day') where id=?"
 CHECKSESSION="select id from user where session_id=? and session_time>datetime('now')"
 INSERTUSER="insert into user(email,password,salt,full_name) Values(?,?,?,?)"
-INSERTTAG="insert into tag(name) Values(?)"
+INSERTTAG="insert into property(name) Values(?)"
 INSERTPROJECT="insert into project(name,description) Values(?,?)"
 INSERTACCESS="insert into user_access(user_id,project_id,access_id) Values(?,?,2)"
-INSERTTAGVALUE="insert into tag(tag_id,name) Values(?,?)"
+INSERTTAGVALUE="insert into property(property_id,name) Values(?,?)"
 SETADMINISTRATOR="insert into user_access(user_id,access_id) Values(?,1)"
 GETVIEWS="select distinct id,user_id,name,global_access from created_views"
 GETACCESS="select useraccess,project from get_project_users where user_id=?"
 CLEARSESSION="update user set session_id='',session_time=datetime('now') where id=?"
-GETTAGVALUES="select distinct tag,tagvalue from all_tags where not tagvalue=''"
+GETTAGVALUES="select distinct property,property_value from all_properties where not property_value=''"
 GETUSERS="select * from user"
-GETTAGS="select * from tag"
+GETTAGS="select * from property"
 GETPROJECTS="select * from project"
+GETTASKS="select * from all_tasks"
+GETPROPERTIES="select * from property"
 # HTML Text
 BUTTONLINK="<a href='%s' class='button'>%s</a><br>"
 BOLDLINK="<b><a href='index.py?id=%s'>%s</a></b><br>"
 LISTOPTION="<option value='%s'>%s</option>"
 LISTOPTIONSELECT="<option value=%d%s>%s</option>"
+TABLECELLWIDTH="120"
+TABLEHEADER="<td style='width: "+TABLECELLWIDTH+"px'><b>%s <a href='test.html' class='button button-small'>-</a><br></b></td>"
 #-----------------------------------------------------------------------
 # Functions
 #-----------------------------------------------------------------------
@@ -108,55 +115,75 @@ def openDB():
     cur=conn.cursor()
     return conn,cur
 #-----------------------------------------------------------------------
-def transposeTags(rows):
-    data = OrderedDict()
+def transposeTags(cur):
+    cur.execute(GETTAGVALUES)
+    rows = cur.fetchall()
+    dict1=OrderedDict()
+    data=[]
     for row in rows:
-        if row['tag'] not in data:
-            data[row['tag']]=[]
-        if row['tagvalue'] not in data[row['tag']]:
-            data[row['tag']].append(row['tagvalue'])
+        dict1[row['property']] = ''
+    for row in rows:
+        found=False
+        for d1 in data:
+            if d1[row['property']]=='':
+                d1[row['property']]=row['property_value']
+                found=True
+                break
+        if not found:
+            dict2=OrderedDict(dict1)
+            dict2[row['property']]=row['property_value']
+            data.append(dict2)
     return data
 #-----------------------------------------------------------------------
-def transposeTasks(rows):
-    data = OrderedDict()
-    data['taskid']=[]
-    data['Project']=[]
-    data['Task']=[]
-    data['Creation date']=[]
-    data['Due date']=[]
-    data['User']=[]
-    data['Role']=[]
+def transposeTasks(cur):
+    propcols=[]
+    cur.execute(GETPROPERTIES)
+    rows=cur.fetchall()
     for row in rows:
-        if row['tag'] not in data:
-            data[row['tag']]=[]
+        propcols.append(row['name'])
+    cur.execute(GETTASKS)
+    rows=cur.fetchall()
+    taskcols=[]
+    for row in cur.description:
+        if row[0] not in ('property', 'property_value'):
+            taskcols.append(row[0])
+    colnames=taskcols+propcols
+    data = []
+    #logging.basicConfig(level=logging.INFO)
+    #logging.info(colnames)
     for row in rows:
-        if row['taskid'] in data['taskid']:
-            index = data['taskid'].index(row['taskid'])
-        else:
-            for key in data:
-                data[key].append("")
-            index = len(data['taskid']) - 1
-            data['taskid'][index]=row['taskid']
-            data['Project'][index]=row['project']
-            data['Task'][index]=row['task']
-            data['Creation date'][index]=row['creation_date']
-            data['Due date'][index]=row['due_date']
-        data[row['tag']][index] = row['tagvalue']
+        index = next((i for i, entry in enumerate(data) if entry['taskid'] == row['taskid']), None)
+        if index is None:
+            index = len(data) 
+            data.append(OrderedDict.fromkeys(colnames, ""))
+            for col in taskcols:
+                data[index][col]=row[col]
+        if row['property_value']:
+            data[index][row['property']] = row['property_value']
     return data
 #-----------------------------------------------------------------------
-def showTable(data):
-    data_txt="<table><tr>"
-    for header in data.keys():
-        data_txt+="<td><b>"+header+"</b></td>"
-    data_txt+="</tr>"
-    max_len = max(len(values) for values in data.values())
-    for i in range(max_len):
+def showTable(data,groupidx):
+    keys=list(data[0].keys())
+    data_txt=""
+    last_txt=None
+    header_txt="<table><tr>"
+    for header in keys:
+        if groupidx==0 or keys[groupidx-1]!=header:
+            header_txt+=TABLEHEADER % (header,)
+    header_txt+="</tr>"
+    for r in data:
+        if groupidx==0 and data_txt=="":
+            data_txt+=header_txt
+        if r[keys[groupidx-1]]!=last_txt and groupidx>0:
+            if data_txt!="":
+                data_txt+="<table>"
+            data_txt+="<br><b>"+keys[groupidx-1]+": </b>"+r[keys[groupidx-1]]+"<br>"
+            data_txt+=header_txt
+            last_txt=r[keys[groupidx-1]]
         data_txt+="<tr>"
-        for tag in data:
-            data_txt+="<td>"
-            if i < len(data[tag]):
-                data_txt+=str(data[tag][i])
-            data_txt+="</td>"
+        for c in r.values():
+            if groupidx==0 or last_txt!=c:
+                data_txt+="<td>"+str(c)+"</td>"
         data_txt+="</tr>"
     data_txt+="</table>"
     return data_txt
@@ -166,7 +193,7 @@ def getAccess(cur,userid):
     rows=cur.fetchall()
     admin_txt=""
     if any(row['useraccess'] == 1 for row in rows):
-        admin_txt+=BUTTONLINK % ('tags.py','Tags')
+        admin_txt+=BUTTONLINK % ('properties.py','Tags')
         admin_txt+=BUTTONLINK % ('user_admin.py','User')        
     return rows,admin_txt
 #-----------------------------------------------------------------------

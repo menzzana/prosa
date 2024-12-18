@@ -35,22 +35,20 @@ def index():
             conn.close()
             return(template('redirect.tpl',link="../index.py",text="",timeout=0))
         views_txt=getMenu(cur,userid)
-        menu_txt=template('menu.tpl', admin_menu=admin_txt, views=views_txt)
-        cur.execute(GETTAGVALUES)
-        rows=cur.fetchall()
-        data=transposeTags(rows)
-        data_txt=showTable(data)
+        menu_txt=template('menu.tpl', admin_menu=admin_txt, current_view="", views=views_txt)
+        data=transposeTags(cur)
+        data_txt=showTable(data,0)
         cur.execute(GETTAGS)
         rows=cur.fetchall()
-        tags=""
+        props=""
         for row in rows:
-            tags+=LISTOPTION % (row['id'],row['name'])
+            props+=LISTOPTION % (row['id'],row['name'])
         conn.close()
-        return(template('tags.tpl', menu=menu_txt,rows=data_txt,tags=tags))
+        return(template('properties.tpl', menu=menu_txt,rows=data_txt,props=props))
     except Exception as e:
         return("ERROR: %s" % e)
 #-----------------------------------------------------------------------
-@app.route('/add_tag', method='POST')
+@app.route('/add_property', method='POST')
 def addTag():
     try:
         conn,cur=openDB()
@@ -63,10 +61,10 @@ def addTag():
         if not any(row['useraccess'] == 1 for row in access):
             conn.close()
             return(template('redirect.tpl',link="../index.py",text="",timeout=0))
-        cur.execute(INSERTTAG,(request.forms.get('tag')))
+        cur.execute(INSERTTAG,(request.forms.get('property')))
         conn.commit()
         conn.close()
-        return(template('redirect.tpl',link="../tags.py",text="",timeout=0))
+        return(template('redirect.tpl',link="../properties.py",text="",timeout=0))
     except Exception as e:
         return("ERROR: %s" % e)
 #-----------------------------------------------------------------------
@@ -83,12 +81,12 @@ def addTagValue():
         if not any(row['useraccess'] == 1 for row in access):
             conn.close()
             return(template('redirect.tpl',link="../index.py",text="",timeout=0))
-        if not request.forms.get('tags'):
+        if not request.forms.get('props'):
             conn.close()
-            return(template('redirect.tpl',link="../tags.py",text="No tag was selected",timeout=2))
-        cur.execute(INSERTTAGVALUE,(request.forms.get('tags'),request.forms.get('tagvalue')))
+            return(template('redirect.tpl',link="../properties.py",text="No property was selected",timeout=2))
+        cur.execute(INSERTTAGVALUE,(request.forms.get('props'),request.forms.get('property_value')))
         conn.commit()
-        return(template('redirect.tpl',link="../tags.py",text="",timeout=0))
+        return(template('redirect.tpl',link="../properties.py",text="",timeout=0))
         conn.close()
     except Exception as e:
         return("ERROR: %s" % e)

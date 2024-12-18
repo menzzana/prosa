@@ -34,46 +34,44 @@ def index():
             return(template('login.tpl'))
         access,admin_txt=getAccess(cur,userid)
         views_txt=getMenu(cur,userid)
-        menu_txt=template('menu.tpl', admin_menu=admin_txt, views=views_txt)
-        tags=['None','Project','Creation date','Due date']
-        tagssql=['','project','creation_date','due_date']
-        cur.execute(GETTAGS)
-        rows=cur.fetchall()
-        for row in rows:
-            tags.append(row['name'])
-            tagssql.append(row['name'])
-        orderix=groupidx=idx=0
+        menu_txt=template('menu.tpl', admin_menu=admin_txt, views=views_txt,current_view="")
+        data=transposeTasks(cur)
+        for entry in data:
+            del entry['taskid']
+        orderidx=groupidx=propertyidx=idx=0
         if request.query.id:
-            idx=request.query.id
+            idx=int(request.query.id)
         if request.query.order:
-            orderidx=request.query.order
+            orderidx=int(request.query.order)
         if request.query.group:
-            groupidx=request.query.group
-        orderby=groupby=""
-        for idx, tag in enumerate(tags):
-            orderby += LISTOPTIONSELECT % (idx, ' selected' if int(orderidx) == idx else '', tag)
-            groupby += LISTOPTIONSELECT % (idx, ' selected' if int(groupidx) == idx else '', tag)
-        tasksql="select * from all_tasks,get_project_users where get_project_users.project=all_tasks.project"
+            groupidx=int(request.query.group)
+        if request.query.property:
+            propertyidx=int(request.query.property)
+        orderby=groupby=propertyby=""
+        for idx, property in enumerate(data[0].keys(), start=1):
+            orderby += LISTOPTIONSELECT % (idx, ' selected' if orderidx == idx else '', property)
+            groupby += LISTOPTIONSELECT % (idx, ' selected' if groupidx == idx else '', property)
+            propertyby += LISTOPTIONSELECT % (idx, ' selected' if propertyidx == idx else '', property)
+        keys = list(data[0].keys())
+        sort_keys=[]
+        if groupidx>0:
+            sort_keys.append(keys[groupidx-1])
         if orderidx>0:
-            tasksql+=" order by  %s" % (tagssql[int(groupidx)],) 
-        if orderidx>0:
-            if "order" in tasksql:
-                tasksql+=",%s" % (tagssql[int(orderidx)],)  
-            else:
-                tasksql+=" order by  %s" % (tagssql[int(orderidx)],) 
-        cur.execute(tasksql)
-        rows=cur.fetchall()
-        cur.execute("select * from created_views where id=?", (request.query.id,))
-        row_views=cur.fetchall()
-        data=transposeTasks(rows)
-        del data['taskid']
-
-        data_txt=showTable(data)
-
-
-        baseurlgroup="index.py?id=%s&order=%s&group=" % (idx,orderidx)
-        baseurlorder="index.py?id=%s&group=%s&order=" % (idx,groupidx)
-        return(template('list_task.tpl', menu=menu_txt,groupby=groupby,orderby=orderby,rows=data_txt,baseurlorder=baseurlorder,baseurlgroup=baseurlgroup))
+            sort_keys.append(keys[orderidx-1])
+        data = sorted(data, key=lambda x: tuple(x[key] for key in sort_keys))
+        data_txt=showTable(data,groupidx)
+        baseurlgroup="index.py?id=%s&order=%s&property=%s&group=" % (idx,orderidx,propertyidx)
+        baseurlorder="index.py?id=%s&group=%s&property=%s&order=" % (idx,groupidx,propertyidx)
+        baseurlproperty="index.py?id=%s&group=%s&order=%s&property=" % (idx,groupidx,orderidx)
+        return(template('list_task.tpl',
+            menu=menu_txt,
+            groupby=groupby,
+            orderby=orderby,
+            propertyby=propertyby,
+            rows=data_txt,
+            baseurlorder=baseurlorder,
+            baseurlgroup=baseurlgroup,
+            baseurlproperty=baseurlproperty))
         conn.close()
     except Exception as e:
         return("ERROR: %s" % e)

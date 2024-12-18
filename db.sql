@@ -25,21 +25,22 @@ CREATE TABLE task (
 	creation_date DATE NOT NULL,
 	due_date DATE
     );
-CREATE TABLE tag (
+CREATE TABLE property (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	name VARCHAR(255) UNIQUE NOT NULL
 	);
-CREATE TABLE tagvalue (
+CREATE TABLE property_value (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	tag_id INTEGER NOT NULL,
+	property_id INTEGER NOT NULL,
+	order INTEGER UNIQUE NOT NULL,
 	name VARCHAR(255),
-	UNIQUE(tag_id,name) ON CONFLICT ABORT
+	UNIQUE(property_id,name) ON CONFLICT ABORT
 	);
-CREATE TABLE task_tagvalue (
+CREATE TABLE task_value (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	task_id INTEGER,
-	tagvalue_id INTEGER NOT NULL,
-	UNIQUE(task_id,tagvalue_id) ON CONFLICT ABORT
+	property_value_id INTEGER NOT NULL,
+	UNIQUE(task_id,property_value_id) ON CONFLICT ABORT
 	);
 CREATE TABLE user_access (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,71 +52,76 @@ CREATE TABLE user_access (
 CREATE TABLE task_view (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
-	sort_tag_id INTEGER,
-	sort_tag_order INTEGER,
-	group_tag_id INTEGER,
-	group_tag_order INTEGER,
+	sort_property_id INTEGER,
+	group_property_id INTEGER,
 	global_access INTEGER,
     name VARCHAR(40)
     );
-CREATE TABLE task_property (
+CREATE TABLE view_property (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
     task_view_id INTEGER NOT NULL,
-	property_tag_id INTEGER
+	property_id INTEGER
     );
 
 /* Views */
 CREATE VIEW get_project_users AS
-	SELECT user_id,project.name AS project,user.full_name AS name,access.id AS useraccess
-    FROM user,project,user_access,access
-    WHERE user.id=user_access.user_id
-    AND project.id=user_access.project_id
-    AND access.id=user_access.access_id
-	UNION
-	SELECT user_id,project.name AS project,user.full_name AS name,access_id AS useraccess
-    FROM user,project,user_access
-    WHERE user.id=user_access.user_id
-    AND user_access.access_id=1;
+	SELECT user.id AS user_id,project.name AS project,user.full_name AS name,access.id AS useraccess
+	FROM user
+	LEFT JOIN user_access ON user_access.user_id=user.id
+	LEFT JOIN project ON project.id = user_access.project_id
+	LEFT JOIN access ON user_access.access_id=access.id;
+
+CREATE VIEW all_tasks AS
+	SELECT DISTINCT project.name AS 'Project',task.id AS taskid,task.name AS 'Task',
+		task.creation_date as 'Creation date',task.due_date AS 'Due date',
+		COALESCE(user.full_name,'') AS 'Name',COALESCE(access.name,'') AS 'Access',
+		property.name AS property,property_value.name AS property_value
+	FROM project,task
+	LEFT JOIN task_value ON task_value.task_id = task.id
+	LEFT JOIN property_value ON task_value.property_value_id = property_value.id
+	LEFT JOIN property ON property.id = property_value.property_id
+	LEFT JOIN user_access ON user_access.task_id = task.id
+	LEFT JOIN user ON user.id = user_access.user_id
+	LEFT JOIN access ON access.id = user_access.access_id
+	WHERE project.id=task.project_id;
+
+CREATE VIEW created_views AS
+	SELECT task_view.id,user.id AS user_id, global_access, name
+	FROM user,task_view
+	WHERE user.id=task_view.user_id;
+
+CREATE VIEW all_properties AS
+	SELECT DISTINCT property.name AS property,property_value.name AS property_value
+	FROM property,property_value
+	WHERE property.id=property_value.property_id
+	ORDER BY property.id,property_value.id;
+
+/*
+
 
 CREATE VIEW created_views AS
 	SELECT DISTINCT tv.id,tv.name,tv.user_id,project_view,created_date_view,due_date_view,
 		(SELECT name 
-			FROM tag 
-			WHERE tv.sort_tag_id=tag.id),
-		sort_tag_order,
+			FROM property 
+			WHERE tv.sort_property_id=property.id),
+		sort_property_order,
 		(SELECT name 
-			FROM tag 
-			WHERE tv.group_tag_id=tag.id),
-	group_tag_order,global_access,tag.name
-	FROM task_view tv,task_property,tag
+			FROM property 
+			WHERE tv.group_property_id=property.id),
+	group_property_order,global_access,property.name
+	FROM task_view tv,task_property,property
 	WHERE tv.id=task_property.task_view_id
-	AND task_property.property_tag_id=tag.id;
-
-CREATE VIEW all_tasks AS
-	SELECT DISTINCT project.name AS project,task.id AS taskid,task.name AS task,task.creation_date,task.due_date,tag.name AS tag,tagvalue.name AS tagvalue
-	FROM project,task,tag,tagvalue,task_tagvalue
-	WHERE tag.id=tagvalue.tag_id
-	AND task_tagvalue.tagvalue_id=tagvalue.id
-	AND task_tagvalue.task_id=task.id
-	AND project.id=task.project_id;
-
-CREATE VIEW all_tags AS
-	SELECT DISTINCT tag.name AS tag,tagvalue.name AS tagvalue
-	FROM tag,tagvalue
-	WHERE tag.id=tagvalue.tag_id
-	ORDER BY tag.id,tagvalue.id;
-	
-/*
+	AND task_property.property_property_id=property.id;
 
 
 CREATE VIEW get_view AS
-	SELECT task_view.id,user_id,task_view.name,task_view.global_access,tagvalue.name,
-	tag.name,task_view.sort_tag_order,task_view.group_tag_order
-	FROM task_view,task_property,tag,tagvalue
+	SELECT task_view.id,user_id,task_view.name,task_view.global_access,property_value.name,
+	property.name,task_view.sort_property_order,task_view.group_property_order
+	FROM task_view,task_property,property,property_value
 	WHERE task_view.id=task_property.task_view_id
-	AND task_property.task_view_id=tagvalue.id
-	AND task_view.sort_tag_id=tag.id
-	AND task_view.group_tag_id=tag.id;
+	AND task_property.task_view_id=property_value.id
+	AND task_view.sort_property_id=property.id
+	AND task_view.group_property_id=property.id;
 */
 
 /* Inserts */
@@ -131,53 +137,37 @@ INSERT INTO access(id,name) VALUES
 	(5,'Developer');
 INSERT INTO access(id,name) VALUES
 	(6,'viewer');
-INSERT INTO tag(id,name) VALUES
+INSERT INTO property(id,name) VALUES
 	(1,'Status');
-INSERT INTO tagvalue(tag_id,name) VALUES
-	(1,'');
-INSERT INTO tagvalue(tag_id,name) VALUES
+INSERT INTO property_value(property_id,name) VALUES
 	(1,'ToDo');
-INSERT INTO tagvalue(tag_id,name) VALUES
+INSERT INTO property_value(property_id,name) VALUES
 	(1,'Doing');
-INSERT INTO tagvalue(tag_id,name) VALUES
+INSERT INTO property_value(property_id,name) VALUES
 	(1,'Done');
-INSERT INTO tagvalue(tag_id,name) VALUES
+INSERT INTO property_value(property_id,name) VALUES
 	(1,'Struck');
-INSERT INTO tag(id,name) VALUES
+INSERT INTO property(id,name) VALUES
 	(2,'Priority');
-INSERT INTO tagvalue(tag_id,name) VALUES
-	(2,'');
-INSERT INTO tagvalue(tag_id,name) VALUES
+INSERT INTO property_value(property_id,name) VALUES
 	(2,'On hold');
-INSERT INTO tagvalue(tag_id,name) VALUES
+INSERT INTO property_value(property_id,name) VALUES
 	(2,'Low');
-INSERT INTO tagvalue(tag_id,name) VALUES
+INSERT INTO property_value(property_id,name) VALUES
 	(2,'Moderate');
-INSERT INTO tagvalue(tag_id,name) VALUES
+INSERT INTO property_value(property_id,name) VALUES
 	(2,'High');
-INSERT INTO tagvalue(tag_id,name) VALUES
+INSERT INTO property_value(property_id,name) VALUES
 	(2,'Critical');
-INSERT INTO tag(id,name) VALUES
+INSERT INTO property(id,name) VALUES
 	(3,'Milestone');
-INSERT INTO tagvalue(tag_id,name) VALUES
-	(3,'');
-INSERT INTO tagvalue(tag_id,name) VALUES
+INSERT INTO property_value(property_id,name) VALUES
 	(3,'MS1');
-INSERT INTO tagvalue(tag_id,name) VALUES
+INSERT INTO property_value(property_id,name) VALUES
 	(3,'MS2');
-INSERT INTO tagvalue(tag_id,name) VALUES
+INSERT INTO property_value(property_id,name) VALUES
 	(3,'MS3');
-INSERT INTO tagvalue(tag_id,name) VALUES
+INSERT INTO property_value(property_id,name) VALUES
 	(3,'MS4');
-INSERT INTO tagvalue(tag_id,name) VALUES
+INSERT INTO property_value(property_id,name) VALUES
 	(3,'MS5');
-INSERT INTO task_view(user_id,sort_tag_id,sort_tag_order,group_tag_id,group_tag_order,global_access,name) VALUES
-	(1,1,1,2,0,1,'All');
-INSERT INTO task_property(task_view_id,property_tag_id) VALUES
-	(1,1);
-INSERT INTO task_property(task_view_id,property_tag_id) VALUES
-	(1,2);
-INSERT INTO task_property(task_view_id,property_tag_id) VALUES
-	(1,3);
-INSERT INTO task_property(task_view_id,property_tag_id) VALUES
-	(1,4);

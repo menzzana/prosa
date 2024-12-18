@@ -32,7 +32,7 @@ def index():
             return(template('redirect.tpl',link="../index.py",text="",timeout=0))
         access,admin_txt=getAccess(cur,userid)
         views_txt=getMenu(cur,userid)
-        menu_txt=template('menu.tpl', admin_menu=admin_txt, views=views_txt)
+        menu_txt=template('menu.tpl', admin_menu=admin_txt, current_view="", views=views_txt)
         cur.execute(GETPROJECTS)
         rows=cur.fetchall()
         projects=""

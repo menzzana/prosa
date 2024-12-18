@@ -35,7 +35,7 @@ def index():
             conn.close()
             return(template('redirect.tpl',link="../index.py",text="",timeout=0))
         views_txt=getMenu(cur,userid)
-        menu_txt=template('menu.tpl', admin_menu=admin_txt, views=views_txt)
+        menu_txt=template('menu.tpl', admin_menu=admin_txt, current_view="", views=views_txt)
         cur.execute(GETUSERS)
         rows=cur.fetchall()
         users=""

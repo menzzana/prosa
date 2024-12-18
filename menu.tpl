@@ -1,5 +1,6 @@
         <div class="div1">
-            <b>Views:</b><br><br>
+            <b>Views:</b> ( <a href='index.py'>List</a>, <a href='index.py/kanban_task'>Kanban</a> )
+            <a href='index.py/add_view{{current_view}}' class='button button-small'>+</a><br><br>
             {{!views}}
             <br><hr>
             <b>Administration</b><br>

@@ -29,16 +29,20 @@ INSERT INTO task(project_id,name,description,creation_date,due_date) VALUES
 	(2,'My 3 task','This a milestone3','2024-11-17','2025-03-01');
 INSERT INTO task(project_id,name,description,creation_date,due_date) VALUES
 	(3,'My 4 task','This a milestone4','2024-11-17','2025-02-01');
-INSERT INTO task_tagvalue(task_id,tagvalue_id) VALUES
-	(1,10);
-INSERT INTO task_tagvalue(task_id,tagvalue_id) VALUES
+INSERT INTO task_value(task_id,property_value_id) VALUES
+	(4,10);
+INSERT INTO task_value(task_id,property_value_id) VALUES
 	(1,11);
-INSERT INTO task_tagvalue(task_id,tagvalue_id) VALUES
-	(3,12);
-INSERT INTO task_tagvalue(task_id,tagvalue_id) VALUES
+INSERT INTO task_value(task_id,property_value_id) VALUES
+	(3,2);
+INSERT INTO task_value(task_id,property_value_id) VALUES
 	(4,13);
-INSERT INTO task_tagvalue(task_id,tagvalue_id) VALUES
-	(2,14);
+INSERT INTO task_value(task_id,property_value_id) VALUES
+	(2,4);
+INSERT INTO task_value(task_id,property_value_id) VALUES
+	(3,7);
+INSERT INTO task_value(task_id,property_value_id) VALUES
+	(1,6);
 INSERT INTO user_access(project_id,access_id,user_id) VALUES
 	(3,3,3);
 INSERT INTO user_access(project_id,access_id,user_id) VALUES
