@@ -174,15 +174,15 @@ def showTable(data,groupidx):
     for r in data:
         if groupidx==0 and data_txt=="":
             data_txt+=header_txt
-        if r[keys[groupidx-1]]!=last_txt and groupidx>0:
-            if data_txt!="":
-                data_txt+="<table>"
-            data_txt+="<br><b>"+keys[groupidx-1]+": </b>"+r[keys[groupidx-1]]+"<br>"
-            data_txt+=header_txt
+        if groupidx>0:
+            if r[keys[groupidx-1]]!=last_txt:
+                if data_txt!="":
+                    data_txt+="<table>"
+                data_txt+="<br><b>"+keys[groupidx-1]+": </b>"+r[keys[groupidx-1]]+"<br>"+header_txt
             last_txt=r[keys[groupidx-1]]
         data_txt+="<tr>"
-        for c in r.values():
-            if groupidx==0 or last_txt!=c:
+        for idx,c in enumerate(r.values(),start=1):
+            if groupidx==0 or groupidx!=idx:
                 data_txt+="<td>"+str(c)+"</td>"
         data_txt+="</tr>"
     data_txt+="</table>"
