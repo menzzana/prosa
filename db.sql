@@ -32,7 +32,6 @@ CREATE TABLE property (
 CREATE TABLE property_value (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	property_id INTEGER NOT NULL,
-	order INTEGER UNIQUE NOT NULL,
 	name VARCHAR(255),
 	UNIQUE(property_id,name) ON CONFLICT ABORT
 	);
@@ -72,10 +71,11 @@ CREATE VIEW get_project_users AS
 	LEFT JOIN access ON user_access.access_id=access.id;
 
 CREATE VIEW all_tasks AS
-	SELECT DISTINCT project.name AS 'Project',task.id AS taskid,task.name AS 'Task',
+	SELECT DISTINCT task.id AS taskid,project.name AS 'Project',task.name AS 'Task',
 		task.creation_date as 'Creation date',task.due_date AS 'Due date',
 		COALESCE(user.full_name,'') AS 'Name',COALESCE(access.name,'') AS 'Access',
-		property.name AS property,COALESCE(property_value.name,'') AS property_value
+		property.name AS property,
+		COALESCE(property_value.id,'') AS property_value_n,COALESCE(property_value.name,'') AS property_value
 	FROM project,task
 	LEFT JOIN task_value ON task_value.task_id = task.id
 	LEFT JOIN property_value ON task_value.property_value_id = property_value.id

@@ -36,8 +36,6 @@ def index():
         views_txt=getMenu(cur,userid)
         menu_txt=template('menu.tpl', admin_menu=admin_txt, views=views_txt,current_view="")
         data=transposeTasks(cur)
-        for entry in data:
-            del entry['taskid']
         orderidx=groupidx=propertyidx=idx=0
         if request.query.id:
             idx=int(request.query.id)
@@ -47,18 +45,27 @@ def index():
             groupidx=int(request.query.group)
         if request.query.property:
             propertyidx=int(request.query.property)
-        orderby=groupby=propertyby=""
-        for idx, property in enumerate(data[0].keys(), start=1):
-            orderby += LISTOPTIONSELECT % (idx, ' selected' if orderidx == idx else '', property)
-            groupby += LISTOPTIONSELECT % (idx, ' selected' if groupidx == idx else '', property)
-            propertyby += LISTOPTIONSELECT % (idx, ' selected' if propertyidx == idx else '', property)
         keys = list(data[0].keys())
         sort_keys=[]
         if groupidx>0:
-            sort_keys.append(keys[groupidx-1])
+            key=keys[groupidx]
+            sort_keys.append(key+SORTORDER if key+SORTORDER in keys else key)
         if orderidx>0:
-            sort_keys.append(keys[orderidx-1])
+            key=keys[orderidx]
+            sort_keys.append(key+SORTORDER if key+SORTORDER in keys else key)
         data = sorted(data, key=lambda x: tuple(x[key] for key in sort_keys))
+        remkeys=[]
+        delkeys=[]
+        for key in keys:
+            (delkeys if key.endswith(SORTORDER) or key == "taskid" else remkeys).append(key)
+        for d in data:
+            for key in delkeys:
+                del d[key]
+        orderby=groupby=propertyby=""
+        for idx, property in enumerate(remkeys, start=1):
+            orderby += LISTOPTIONSELECT % (idx, ' selected' if orderidx == idx else '', property)
+            groupby += LISTOPTIONSELECT % (idx, ' selected' if groupidx == idx else '', property)
+            propertyby += LISTOPTIONSELECT % (idx, ' selected' if propertyidx == idx else '', property)
         data_txt=showTable(data,groupidx)
         baseurlgroup="index.py?id=%s&order=%s&property=%s&group=" % (idx,orderidx,propertyidx)
         baseurlorder="index.py?id=%s&group=%s&property=%s&order=" % (idx,groupidx,propertyidx)

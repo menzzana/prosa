@@ -31,6 +31,7 @@ DBADDRESS="prosa.sqlite"
 SALTN=5
 PASSWORDN=10
 SESSIONN=20
+SORTORDER="_n"
 # SQL Commands
 GETSALT="select salt from user where email=?"
 GETIDFROMPASSWORD="select id from user where email=? and password=?"
@@ -145,9 +146,9 @@ def transposeTasks(cur):
     rows=cur.fetchall()
     taskcols=[]
     for row in cur.description:
-        if row[0] not in ('property', 'property_value'):
+        if row[0] not in ('property', 'property_value', 'property_value'+SORTORDER):
             taskcols.append(row[0])
-    colnames=taskcols+propcols
+    colnames=taskcols+propcols+[item + SORTORDER for item in propcols]
     data = []
     #logging.basicConfig(level=logging.INFO)
     #logging.info(colnames)
@@ -160,6 +161,7 @@ def transposeTasks(cur):
                 data[index][col]=row[col]
         if row['property_value']:
             data[index][row['property']] = row['property_value']
+            data[index][row['property']+SORTORDER] = row['property_value'+SORTORDER]
     return data
 #-----------------------------------------------------------------------
 def showTable(data,groupidx):
