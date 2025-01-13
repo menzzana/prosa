@@ -7,6 +7,11 @@
     <body>
         {{!menu}}
         <div class="div2">
+            <b>Project:</b>
+            <select name="projectby" class="dropdown-select" onchange="navigateToUrl('{{!baseurlproject}}',this)">
+                <option value=0>All</option>
+                {{!projectby}}
+            </select>        
             <b>Group by:</b>
             <select name="groupby" class="dropdown-select" onchange="navigateToUrl('{{!baseurlgroup}}',this)">
                 <option value=0>None</option>
@@ -17,11 +22,7 @@
                 <option value=0>None</option>
                 {{!orderby}}
             </select>
-            <b>Add property:</b>
-            <select name="property" class="dropdown-select" onchange="navigateToUrl('{{!baseurlproperty}}',this)">
-                <option value=0>None</option>
-                {{!propertyby}}
-            </select>
+            <a href="#" class="button-blue" onclick="openWindowAtPointer(event, '{{!baseurlproperty}}','list_properties.py');return false;">Properties</a>
             <br><br>
             {{!rows}}
         </div>

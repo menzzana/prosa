@@ -37,7 +37,7 @@ def index():
         views_txt=getMenu(cur,userid)
         menu_txt=template('menu.tpl', admin_menu=admin_txt, current_view="", views=views_txt)
         data=transposeTags(cur)
-        data_txt=showTable(data,0)
+        data_txt=showTable(data,0,list(data[0].keys()))
         cur.execute(GETTAGS)
         rows=cur.fetchall()
         props=""

@@ -21,9 +21,9 @@ import sqlite3
 import random
 import hashlib
 from collections import OrderedDict
+from bottle import run, redirect, Bottle, template, response, request, post
 # Needed for debugging
 import logging
-
 #-----------------------------------------------------------------------
 # Constants
 #-----------------------------------------------------------------------
@@ -31,7 +31,11 @@ DBADDRESS="prosa.sqlite"
 SALTN=5
 PASSWORDN=10
 SESSIONN=20
-SORTORDER="_n"
+SORTORDER="_id"
+class DB:
+    NONE = 0
+    READ = 1
+    WRITE = 2
 # SQL Commands
 GETSALT="select salt from user where email=?"
 GETIDFROMPASSWORD="select id from user where email=? and password=?"
@@ -45,12 +49,15 @@ INSERTTAGVALUE="insert into property(property_id,name) Values(?,?)"
 SETADMINISTRATOR="insert into user_access(user_id,access_id) Values(?,1)"
 GETVIEWS="select distinct id,user_id,name,global_access from created_views"
 GETACCESS="select useraccess,project from get_project_users where user_id=?"
+GETACCESSNAMES="select * from access where id>1"
 CLEARSESSION="update user set session_id='',session_time=datetime('now') where id=?"
 GETTAGVALUES="select distinct property,property_value from all_properties where not property_value=''"
 GETUSERS="select * from user"
 GETTAGS="select * from property"
 GETPROJECTS="select * from project"
 GETTASKS="select * from all_tasks"
+ONLYPROJECT=" where project_id=?"
+GETPROJECTUSERS="select * from get_project_users"
 GETPROPERTIES="select * from property"
 # HTML Text
 BUTTONLINK="<a href='%s' class='button'>%s</a><br>"
@@ -58,7 +65,7 @@ BOLDLINK="<b><a href='index.py?id=%s'>%s</a></b><br>"
 LISTOPTION="<option value='%s'>%s</option>"
 LISTOPTIONSELECT="<option value=%d%s>%s</option>"
 TABLECELLWIDTH="120"
-TABLEHEADER="<td style='width: "+TABLECELLWIDTH+"px'><b>%s <a href='test.html' class='button button-small'>-</a><br></b></td>"
+TABLEHEADER="<td style='width: "+TABLECELLWIDTH+"px;background: #d8d8f7;' onclick='navigateToUrl('%s',this)'><b>%s</b></td>"
 #-----------------------------------------------------------------------
 # Functions
 #-----------------------------------------------------------------------
@@ -116,6 +123,24 @@ def openDB():
     cur=conn.cursor()
     return conn,cur
 #-----------------------------------------------------------------------
+def getAccess(cur,userid):
+    cur.execute(GETACCESS, (userid,))
+    rows=cur.fetchall()
+    admin_txt=""
+    if any(row['useraccess'] == 1 for row in rows):
+        admin_txt+=BUTTONLINK % ('properties.py','Tags')
+        admin_txt+=BUTTONLINK % ('user_admin.py','User')        
+    return rows,admin_txt
+#-----------------------------------------------------------------------
+def getProjectAccess(cur,userid,projectid):
+    cur.execute(GETPROJECTUSERS+" where user_id=? and project_id=?",(user_id,project_id))
+    row=cur.fetchone()
+    if row['useraccess']<6:
+        return DB.WRITE
+    if row['useraccess']==6:
+        return DB.READ
+    return DB.NONE
+#-----------------------------------------------------------------------
 def transposeTags(cur):
     cur.execute(GETTAGVALUES)
     rows = cur.fetchall()
@@ -136,24 +161,31 @@ def transposeTags(cur):
             data.append(dict2)
     return data
 #-----------------------------------------------------------------------
-def transposeTasks(cur):
+def transposeTasks(cur,projectidx):
     propcols=[]
     cur.execute(GETPROPERTIES)
     rows=cur.fetchall()
     for row in rows:
         propcols.append(row['name'])
-    cur.execute(GETTASKS)
+    cur.execute(GETACCESSNAMES)
+    rows=cur.fetchall()
+    for row in rows:
+        propcols.append(row['name'])
+    if projectidx>0:
+        cur.execute(GETTASKS+ONLYPROJECT,(projectidx,))
+    else:
+        cur.execute(GETTASKS)
     rows=cur.fetchall()
     taskcols=[]
     for row in cur.description:
-        if row[0] not in ('property', 'property_value', 'property_value'+SORTORDER):
+        if row[0] not in ('property', 'property_value', 'property_value'+SORTORDER,'access_name','access'):
             taskcols.append(row[0])
     colnames=taskcols+propcols+[item + SORTORDER for item in propcols]
     data = []
     #logging.basicConfig(level=logging.INFO)
     #logging.info(colnames)
     for row in rows:
-        index = next((i for i, entry in enumerate(data) if entry['taskid'] == row['taskid']), None)
+        index = next((i for i, entry in enumerate(data) if entry['task'+SORTORDER] == row['task'+SORTORDER]), None)
         if index is None:
             index = len(data) 
             data.append(OrderedDict.fromkeys(colnames, ""))
@@ -162,16 +194,18 @@ def transposeTasks(cur):
         if row['property_value']:
             data[index][row['property']] = row['property_value']
             data[index][row['property']+SORTORDER] = row['property_value'+SORTORDER]
+        if row['access_name']:
+            data[index][row['access']] += row['access_name']+" "
+            data[index][row['access']+SORTORDER] = row['access_name'+SORTORDER]
     return data
 #-----------------------------------------------------------------------
-def showTable(data,groupidx):
-    keys=list(data[0].keys())
+def showTable(data,groupidx,keys):
     data_txt=""
     last_txt=None
     header_txt="<table><tr>"
     for header in keys:
         if groupidx==0 or keys[groupidx-1]!=header:
-            header_txt+=TABLEHEADER % (header,)
+            header_txt+=TABLEHEADER % ('index.py',header)
     header_txt+="</tr>"
     for r in data:
         if groupidx==0 and data_txt=="":
@@ -183,21 +217,23 @@ def showTable(data,groupidx):
                 data_txt+="<br><b>"+keys[groupidx-1]+": </b>"+r[keys[groupidx-1]]+"<br>"+header_txt
             last_txt=r[keys[groupidx-1]]
         data_txt+="<tr>"
-        for idx,c in enumerate(r.values(),start=1):
-            if groupidx==0 or groupidx!=idx:
-                data_txt+="<td>"+str(c)+"</td>"
+        for key in keys:
+            if groupidx==0 or keys[groupidx-1]!=key:
+                data_txt+="<td>"+str(r[key])+"</td>"
         data_txt+="</tr>"
     data_txt+="</table>"
     return data_txt
 #-----------------------------------------------------------------------
-def getAccess(cur,userid):
-    cur.execute(GETACCESS, (userid,))
+def getProjects(cur,projectidx,userid):
+    cur.execute(GETPROJECTUSERS)
     rows=cur.fetchall()
-    admin_txt=""
-    if any(row['useraccess'] == 1 for row in rows):
-        admin_txt+=BUTTONLINK % ('properties.py','Tags')
-        admin_txt+=BUTTONLINK % ('user_admin.py','User')        
-    return rows,admin_txt
+    projectid=[]
+    project_txt=""
+    for row in rows:
+        if row['project_id'] not in projectid and row['project_id']>0:
+            projectid.append(row['project_id'])
+            project_txt += LISTOPTIONSELECT % (row['project_id'], ' selected' if row['project_id'] == projectidx else '', row['project'])
+    return project_txt
 #-----------------------------------------------------------------------
 def getMenu(cur,userid):
     cur.execute(GETVIEWS)

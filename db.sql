@@ -64,18 +64,24 @@ CREATE TABLE view_property (
 
 /* Views */
 CREATE VIEW get_project_users AS
-	SELECT user.id AS user_id,project.name AS project,user.full_name AS name,access.id AS useraccess
-	FROM user
-	LEFT JOIN user_access ON user_access.user_id=user.id
-	LEFT JOIN project ON project.id = user_access.project_id
-	LEFT JOIN access ON user_access.access_id=access.id;
+	SELECT user.id AS user_id,project.name AS project,project.id AS project_id,user.full_name AS name,access.id AS useraccess
+	FROM project
+	LEFT JOIN user_access ON user_access.project_id=project.id
+	LEFT JOIN user ON user_access.user_id=user.id
+	LEFT JOIN access ON user_access.access_id=access.id
+	UNION
+	SELECT user.id AS user_id,'' AS project,0 AS project_id,user.full_name AS name,access_id AS useraccess
+	FROM user,user_access
+	WHERE user.id=user_access.user_id
+	AND user_access.access_id=1;
 
 CREATE VIEW all_tasks AS
-	SELECT DISTINCT task.id AS taskid,project.name AS 'Project',task.name AS 'Task',
+	SELECT DISTINCT project.name AS 'Project',task.name AS 'Task',
 		task.creation_date as 'Creation date',task.due_date AS 'Due date',
-		COALESCE(user.full_name,'') AS 'Name',COALESCE(access.name,'') AS 'Access',
-		property.name AS property,
-		COALESCE(property_value.id,'') AS property_value_n,COALESCE(property_value.name,'') AS property_value
+		COALESCE(user.full_name,'') AS 'access_name',COALESCE(access.name,'') AS 'access',
+		task.id AS task_id,project.id AS project_id,user.id AS access_name_id,access.id AS access_id,
+		property.name AS property,COALESCE(property.id,0) AS property_id,
+		COALESCE(property_value.id,0) AS property_value_id,COALESCE(property_value.name,'') AS property_value
 	FROM project,task
 	LEFT JOIN task_value ON task_value.task_id = task.id
 	LEFT JOIN property_value ON task_value.property_value_id = property_value.id
@@ -136,7 +142,7 @@ INSERT INTO access(id,name) VALUES
 INSERT INTO access(id,name) VALUES
 	(5,'Developer');
 INSERT INTO access(id,name) VALUES
-	(6,'viewer');
+	(6,'Viewer');
 INSERT INTO property(id,name) VALUES
 	(1,'Status');
 INSERT INTO property_value(property_id,name) VALUES

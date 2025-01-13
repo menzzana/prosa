@@ -17,7 +17,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #-----------------------------------------------------------------------
 import Cookie
 from init import *
-from bottle import run, redirect, Bottle, template, response, request, post
 # Print text to /var/log/httpd/ssl_error_log
 import logging
 #-----------------------------------------------------------------------
@@ -32,56 +31,88 @@ def index():
         if userid is None:
             conn.close()
             return(template('login.tpl'))
-        access,admin_txt=getAccess(cur,userid)
-        views_txt=getMenu(cur,userid)
-        menu_txt=template('menu.tpl', admin_menu=admin_txt, views=views_txt,current_view="")
-        data=transposeTasks(cur)
-        orderidx=groupidx=propertyidx=idx=0
-        if request.query.id:
-            idx=int(request.query.id)
+        projectidx=orderidx=groupidx=viewidx=0
+        propertyidx=""
+        propertylist=[]
+        orderby=groupby=projectby=""
+        if request.query.view:
+            viewidx=int(request.query.view)
+        if request.query.project:
+            projectidx=int(request.query.project)
         if request.query.order:
             orderidx=int(request.query.order)
         if request.query.group:
             groupidx=int(request.query.group)
         if request.query.property:
-            propertyidx=int(request.query.property)
+            propertyidx=str(request.query.property)
+            propertylist = [int(num) for num in propertyidx.split(",")]
+        access,admin_txt=getAccess(cur,userid)
+        views_txt=getMenu(cur,userid)
+        menu_txt=template('menu.tpl', admin_menu=admin_txt, views=views_txt,current_view="")
+        projectby=getProjects(cur,projectidx,userid)
+        data=transposeTasks(cur,projectidx)
         keys = list(data[0].keys())
         sort_keys=[]
         if groupidx>0:
-            key=keys[groupidx]
+            key=keys[groupidx-1]
             sort_keys.append(key+SORTORDER if key+SORTORDER in keys else key)
         if orderidx>0:
-            key=keys[orderidx]
+            key=keys[orderidx-1]
             sort_keys.append(key+SORTORDER if key+SORTORDER in keys else key)
-        data = sorted(data, key=lambda x: tuple(x[key] for key in sort_keys))
-        remkeys=[]
-        delkeys=[]
+        data = sorted(data, key = lambda x: tuple((x[key]=='', x[key]) for key in sort_keys))
+        curkeys=[]
         for key in keys:
-            (delkeys if key.endswith(SORTORDER) or key == "taskid" else remkeys).append(key)
-        for d in data:
-            for key in delkeys:
-                del d[key]
-        orderby=groupby=propertyby=""
-        for idx, property in enumerate(remkeys, start=1):
-            orderby += LISTOPTIONSELECT % (idx, ' selected' if orderidx == idx else '', property)
-            groupby += LISTOPTIONSELECT % (idx, ' selected' if groupidx == idx else '', property)
-            propertyby += LISTOPTIONSELECT % (idx, ' selected' if propertyidx == idx else '', property)
-        data_txt=showTable(data,groupidx)
-        baseurlgroup="index.py?id=%s&order=%s&property=%s&group=" % (idx,orderidx,propertyidx)
-        baseurlorder="index.py?id=%s&group=%s&property=%s&order=" % (idx,groupidx,propertyidx)
-        baseurlproperty="index.py?id=%s&group=%s&order=%s&property=" % (idx,groupidx,orderidx)
+            if key.endswith(SORTORDER):
+                continue
+            if keys.index(key)+1 not in propertylist and len(propertylist)>0:
+                continue
+            curkeys.append(key)
+        for idx, property in enumerate(keys, start=1):
+            if property in curkeys:
+                orderby += LISTOPTIONSELECT % (idx, ' selected' if orderidx == idx else '', property)
+                groupby += LISTOPTIONSELECT % (idx, ' selected' if groupidx == idx else '', property)
+        data_txt=showTable(data,groupidx,curkeys)
+        urlproject="index.py?viewid=%s&group=%s&order=%s&property=%s&project=" % (viewidx,groupidx,orderidx,propertyidx)
+        urlgroup="index.py?viewid=%s&project=%s&order=%s&property=%s&group=" % (viewidx,projectidx,orderidx,propertyidx)
+        urlorder="index.py?viewid=%s&project=%s&group=%s&property=%s&order=" % (viewidx,projectidx,groupidx,propertyidx)
+        urlproperty="index.py?viewid=%s&project=%s&group=%s&order=%s&property=" % (viewidx,projectidx,groupidx,orderidx)
+        conn.close()
         return(template('list_task.tpl',
             menu=menu_txt,
+            projectby=projectby,
             groupby=groupby,
             orderby=orderby,
-            propertyby=propertyby,
             rows=data_txt,
-            baseurlorder=baseurlorder,
-            baseurlgroup=baseurlgroup,
-            baseurlproperty=baseurlproperty))
-        conn.close()
+            baseurlproject=urlproject,
+            baseurlorder=urlorder,
+            baseurlgroup=urlgroup,
+            baseurlproperty=urlproperty))
     except Exception as e:
         return("ERROR: %s" % e)
+#-----------------------------------------------------------------------
+@app.route('/selected_properties', method='POST')
+def selectedProperties():
+    try:
+        conn,cur=openDB()
+        session_id=getSessionCookie()
+        userid=getSessionUser(cur,session_id)
+        if userid is None:
+            conn.close()
+            return(template('login.tpl'))
+        projectidx=orderidx=groupidx=viewidx=0
+        if request.query.view:
+            viewidx=int(request.query.view)
+        if request.query.project:
+            projectidx=int(request.query.project)
+        if request.query.order:
+            orderidx=int(request.query.order)
+        if request.query.group:
+            groupidx=int(request.query.group)
+        propertyidx=",".join(map(str, request.forms.getall('props')))
+        urlproperty="?viewid=%s&group=%s&order=%s&property=%s&project=" % (viewidx,groupidx,orderidx,propertyidx)
+        return(template('redirect.tpl',link="../index.py"+urlproperty,text="",timeout=0))
+    except Exception as e:
+        return("ERROR: %s" % e)    
 #-----------------------------------------------------------------------
 @app.route('/login', method='POST')
 def login():
