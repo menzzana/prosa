@@ -6,10 +6,8 @@
         <script src="/prosa/static/functions.js" defer></script>
     </head>
     <body class="no-flex">
-        <select id="properties" size=10 class="list-select" multiple>
-            {{!properties}}
-        </select>
+        <textarea  id="project_txt" rows="10" cols="50">{{!text_data}}</textarea>
         <br>
-        <a href="#" class="button-blue" onclick="sendSelectedItemsToParent('properties')">Ok</a>
+        <a href="#" class="button-blue" onclick="sendSelectedItemsToParent('project_txt')">Save</a>
     </body>
 </html>

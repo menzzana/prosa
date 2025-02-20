@@ -48,7 +48,8 @@ def index():
             propertylist = [int(num) for num in propertyidx.split(",")]
         access,admin_txt=getAccess(cur,userid)
         views_txt=getMenu(cur,userid)
-        menu_txt=template('menu.tpl', admin_menu=admin_txt, views=views_txt,current_view="")
+        current_view="index.py/add_view?group=%s&order=%s&property=%s&project=%s" % (groupidx,orderidx,propertyidx,projectidx)
+        menu_txt=template('menu.tpl', admin_menu=admin_txt, views=views_txt,current_view=current_view)
         projectby=getProjects(cur,projectidx,userid)
         data=transposeTasks(cur,projectidx)
         keys = list(data[0].keys())
@@ -89,30 +90,6 @@ def index():
             baseurlproperty=urlproperty))
     except Exception as e:
         return("ERROR: %s" % e)
-#-----------------------------------------------------------------------
-@app.route('/selected_properties', method='POST')
-def selectedProperties():
-    try:
-        conn,cur=openDB()
-        session_id=getSessionCookie()
-        userid=getSessionUser(cur,session_id)
-        if userid is None:
-            conn.close()
-            return(template('login.tpl'))
-        projectidx=orderidx=groupidx=viewidx=0
-        if request.query.view:
-            viewidx=int(request.query.view)
-        if request.query.project:
-            projectidx=int(request.query.project)
-        if request.query.order:
-            orderidx=int(request.query.order)
-        if request.query.group:
-            groupidx=int(request.query.group)
-        propertyidx=",".join(map(str, request.forms.getall('props')))
-        urlproperty="?viewid=%s&group=%s&order=%s&property=%s&project=" % (viewidx,groupidx,orderidx,propertyidx)
-        return(template('redirect.tpl',link="../index.py"+urlproperty,text="",timeout=0))
-    except Exception as e:
-        return("ERROR: %s" % e)    
 #-----------------------------------------------------------------------
 @app.route('/login', method='POST')
 def login():

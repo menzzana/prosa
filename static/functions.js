@@ -21,11 +21,10 @@ function navigateToUrl(baseurl, dropdown) {
         }
     }
 //-----------------------------------------------------------------------
-function openWindowAtPointer(event, baseurl, url) {
+function openWindowAtPointer(event, baseurl, url, width, height) {
     const pointerX = event.screenX;
     const pointerY = event.screenY;
-    const width = 200;
-    const height = 450;
+    console.log("Child window opened");
     popup = window.open(
         url + window.location.search,
         '_blank',
@@ -37,21 +36,39 @@ function openWindowAtPointer(event, baseurl, url) {
             };
         }
     window.addEventListener('message', (e) => {
-        if (e.origin === window.location.origin) {
+        if (e.origin == window.location.origin) {
             console.log('Selected items received from child:', e.data);
-            const selectedItems = e.data.join(',');
-            const redirectUrl = baseurl+selectedItems;
+            let redirectUrl = null;
+            if (e.data.id == 'project_txt' || e.data.id == 'task_txt')
+                redirectUrl = baseurl + e.data.value;
+            if (e.data.id == 'properties') {
+                const selectedItems = e.data.value.join(',');
+                redirectUrl = baseurl + selectedItems;
+                }
             window.location.href = redirectUrl;
             }
         });
     }
 //-----------------------------------------------------------------------
 function sendSelectedItemsToParent(elementid) {
-    const selectBox = document.getElementById(elementid);
-    const selectedOptions = Array.from(selectBox.selectedOptions).map(option => option.value);
+    const elid = document.getElementById(elementid);
+    let formdata=null;
 
+    console.log('Data sent to child');
+    if (elid.tagName == 'SELECT') {
+        formdata = {
+            id: elementid,
+            value: Array.from(elid.selectedOptions).map(option => option.value)
+            };
+        }
+    if (elid.tagName == 'TEXTAREA') {
+        formdata = {
+            id: elementid,
+            value: elid.value
+            };
+        }
     if (window.opener) {
-        window.opener.postMessage(selectedOptions, window.location.origin);
+        window.opener.postMessage(formdata, window.location.origin);
         window.close();
         }
     else {

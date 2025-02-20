@@ -65,7 +65,8 @@ BOLDLINK="<b><a href='index.py?id=%s'>%s</a></b><br>"
 LISTOPTION="<option value='%s'>%s</option>"
 LISTOPTIONSELECT="<option value=%d%s>%s</option>"
 TABLECELLWIDTH="120"
-TABLEHEADER="<td style='width: "+TABLECELLWIDTH+"px;background: #d8d8f7;' onclick='navigateToUrl('%s',this)'><b>%s</b></td>"
+TABLEHEADER="<td style='width: "+TABLECELLWIDTH+"px;background: #d8d8f7;'><b>%s</b></td>"
+CLICKABLETD="<td onclick=\"openWindowAtPointer(event, 'write_text.py/write?type=%s&id=%s&text_data=','write_text.py?type=%s&id=%s',500,250);return false;\">%s</td>"
 #-----------------------------------------------------------------------
 # Functions
 #-----------------------------------------------------------------------
@@ -205,7 +206,7 @@ def showTable(data,groupidx,keys):
     header_txt="<table><tr>"
     for header in keys:
         if groupidx==0 or keys[groupidx-1]!=header:
-            header_txt+=TABLEHEADER % ('index.py',header)
+            header_txt+=TABLEHEADER % (header)
     header_txt+="</tr>"
     for r in data:
         if groupidx==0 and data_txt=="":
@@ -219,8 +220,14 @@ def showTable(data,groupidx,keys):
         data_txt+="<tr>"
         for key in keys:
             if groupidx==0 or keys[groupidx-1]!=key:
+                if key == "Task":
+                    data_txt+=CLICKABLETD % ("task",str(r["task_id"]),"task",str(r["task_id"]),str(r[key]))
+                    continue
+                if key == "Project":
+                    data_txt+=CLICKABLETD % ("project",str(r["project_id"]),"project",str(r["project_id"]),str(r[key]))
+                    continue    
                 data_txt+="<td>"+str(r[key])+"</td>"
-        data_txt+="</tr>"
+        data_txt+="</tr>\n"
     data_txt+="</table>"
     return data_txt
 #-----------------------------------------------------------------------

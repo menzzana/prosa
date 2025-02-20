@@ -30,18 +30,33 @@ def index():
         if userid is None:
             conn.close()
             return(template('redirect.tpl',link="../index.py",text="",timeout=0))
-        propertyidx=""
-        propertylist=[]
-        if request.query.property:
-            propertyidx=str(request.query.property)
-            propertylist = [int(num) for num in propertyidx.split(",")]
-        data=transposeTasks(cur,0)
-        keys = list(data[0].keys())
-        props=""
-        for idx,property in enumerate(keys, start=1):
-            if not property.endswith(SORTORDER):
-                props += LISTOPTIONSELECT % (idx, ' selected' if idx in propertylist or len(propertylist)==0 else '', property)
-        return template('list_properties.tpl', properties=props)
+        id=request.query.id
+        typetxt=request.query.type
+        cur.execute("select description from "+typetxt+" where id=?", (id,))
+        text_data=cur.fetchone()['description']
+        if text_data is None:
+            text_data = ""
+        conn.close()
+        return(template('write_text.tpl', text_data=text_data, typeid=typetxt, id=id))
+    except Exception as e:
+        return("ERROR: %s" % e)
+#-----------------------------------------------------------------------
+@app.route('/write')
+def write():
+    try:
+        conn,cur=openDB()
+        session_id=getSessionCookie()
+        userid=getSessionUser(cur,session_id)
+        if userid is None:
+            conn.close()
+            return(template('redirect.tpl',link="../index.py",text="",timeout=0))
+        id=request.query.id
+        typetxt=request.query.type
+        text_data=request.query.text_data
+        cur.execute("update "+typetxt+" set description=? where id=?",(text_data,id))
+        conn.commit()
+        conn.close()
+        return(template('redirect.tpl',link="../index.py",text="",timeout=0))
     except Exception as e:
         return("ERROR: %s" % e)
 #-----------------------------------------------------------------------

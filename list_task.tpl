@@ -22,7 +22,7 @@
                 <option value=0>None</option>
                 {{!orderby}}
             </select>
-            <a href="#" class="button-blue" onclick="openWindowAtPointer(event, '{{!baseurlproperty}}','list_properties.py');return false;">Properties</a>
+            <a href="#" class="button-blue" onclick="openWindowAtPointer(event, '{{!baseurlproperty}}','list_properties.py?property=', 200, 400);return false;">Properties</a>
             <br><br>
             {{!rows}}
         </div>
